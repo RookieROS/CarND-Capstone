@@ -37,16 +37,30 @@ class WaypointUpdater(object):
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
+        self.curr_pose = PoseStamped()
+        self.incoming_waypoints = Lane()
 
         rospy.spin()
 
     def pose_cb(self, msg):
-        # TODO: Implement
-        pass
+        self.curr_pose = msg
+        
+        if len(self.incoming_waypoints.waypoints) > 1: 
+	        closest_indices = self.closest_waypoints(self.incoming_waypoints, self.curr_pose)
+
+	        waypoints = []
+	        start = closest_indices[1]
+
+	        for i in range (0,LOOKAHEAD_WPS-1):
+	        	waypoints.append(self.incoming_waypoints.waypoints[i+start])
+
+	        self.publish(waypoints)
+
+        return 0
 
     def waypoints_cb(self, waypoints):
-        # TODO: Implement
-        pass
+        self.incoming_waypoints = waypoints
+        return 0
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
@@ -62,6 +76,8 @@ class WaypointUpdater(object):
     def set_waypoint_velocity(self, waypoints, waypoint, velocity):
         waypoints[waypoint].twist.twist.linear.x = velocity
 
+    # this distance function returns the distance along a prescribed
+    # path in the given waypoints list 
     def distance(self, waypoints, wp1, wp2):
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
@@ -69,6 +85,52 @@ class WaypointUpdater(object):
             dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
             wp1 = i
         return dist
+
+    # this distance function returns the indices in the waypoint 
+    # vector of the two nearest waypoints to the vehicles current
+    # position (Euclidean distance only). We assume the car is 
+    # between those two waypoints
+    def closest_waypoints(self, waypoints, curr_pose):
+    	
+    	indices = []
+    	distances = []
+
+    	#calculate a distance between curr_pose and each waypoint
+    	for i in range(len(waypoints.waypoints)): 
+    		
+    		#unpack and label incoming data
+    		wp_x = waypoints.waypoints[i].pose.pose.position.x
+    		wp_y = waypoints.waypoints[i].pose.pose.position.y
+    		wp_z = waypoints.waypoints[i].pose.pose.position.z
+    		pose_x = curr_pose.pose.position.x
+    		pose_y = curr_pose.pose.position.y
+    		pose_z = curr_pose.pose.position.z
+
+    		#calculate and add distance to list
+    		distance = math.sqrt((pose_x-wp_x)**2 + (pose_y-wp_y)**2  + (pose_z-wp_z)**2)
+    		distances.append(distance)
+
+    	#find lowest distance
+    	min_index = distances.index(min(distances))
+
+    	#find second lowest distance (and correct index if needed)
+    	del distances[min_index]
+    	nxt_min_index = distances.index(min(distances))
+
+    	if nxt_min_index >= min_index: 
+    		nxt_min_index += 1
+
+    	indices = [min_index, nxt_min_index]
+    	indices.sort()
+
+    	return indices
+
+    def publish(self, waypoints): 
+    	lane = Lane()
+    	lane.header.frame_id = '/world'
+    	lane.header.stamp = rospy.Time(0)
+    	lane.waypoints = waypoints
+    	self.final_waypoints_pub.publish(lane)
 
 
 if __name__ == '__main__':
