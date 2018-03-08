@@ -40,7 +40,10 @@ class WaypointUpdater(object):
         self.curr_pose = PoseStamped()
         self.incoming_waypoints = Lane()
 
+        #self.wait_time = .05
         rospy.Timer(rospy.Duration(.05), self.update_waypoints_tcb)
+
+        self.latency_makeup_waypoints = 4
 
         rospy.spin()
 
@@ -61,7 +64,7 @@ class WaypointUpdater(object):
 	        start = closest_indices[1]
 
 	        for i in range (0,LOOKAHEAD_WPS-1):
-	        	waypoints.append(self.incoming_waypoints.waypoints[(i+start)%len(self.incoming_waypoints.waypoints)])
+	        	waypoints.append(self.incoming_waypoints.waypoints[(i+start + self.latency_makeup_waypoints)%len(self.incoming_waypoints.waypoints)])
 
 	        self.publish(waypoints)
 
