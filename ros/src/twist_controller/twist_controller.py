@@ -24,7 +24,7 @@ class Controller(object):
             return 0.0, 0.0, 0.0
 
         # throttle and brake controllers
-        current_velocity=self.lowpass_flt.filt(current_velocity)
+        current_velocity=self.lowpass_flt_vel.filt(current_velocity)
         linear_velocity_error = linear_velocity - current_velocity
         throttle = self.pid_throttle.step(linear_velocity_error, time_elapsed)
         brake = 0.0
@@ -40,10 +40,11 @@ class Controller(object):
 
         # steering controller
         steer = self.yawcontroller.get_steering(linear_velocity, angular_velocity, current_velocity)
-        #steer = self.lowpass_flt.filt(steer)
+        steer = self.lowpass_flt_steer.filt(steer)
 
         return throttle, brake, steer
 
     def set_controllers(self):
         self.pid_throttle = PID(0.3, 0.1, 0.0, 0.0, 0.6)
-        self.lowpass_flt = LowPassFilter(0.5, 0.2)
+        self.lowpass_flt_vel = LowPassFilter(0.5, 0.2)
+        self.lowpass_flt_steer = LowPassFilter(0.2, 0.1)
