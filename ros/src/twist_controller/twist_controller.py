@@ -7,9 +7,10 @@ ONE_MPH = 0.44704
 
 
 class Controller(object):
-    def __init__(self, wheel_base, steer_ratio, min_speed, max_lat_accel, max_steer_angle, vehicle_mass):
+    def __init__(self, wheel_base, steer_ratio, min_speed, max_lat_accel, max_steer_angle, vehicle_mass,decel_limit):
         self.vehicle_mass = vehicle_mass
         self.wheel_radius = wheel_base
+        self.decel_limit=decel_limit
 
         self.yawcontroller = YawController(wheel_base, steer_ratio, min_speed, max_lat_accel, max_steer_angle)
         self.set_controllers()
@@ -23,24 +24,26 @@ class Controller(object):
             return 0.0, 0.0, 0.0
 
         # throttle and brake controllers
+        current_velocity=self.lowpass_flt.filt(current_velocity)
         linear_velocity_error = linear_velocity - current_velocity
-        if linear_velocity_error > 0.0:
-            throttle = self.pid_throttle.step(linear_velocity_error, time_elapsed)
-            brake = 0.0
-        else:
+        throttle = self.pid_throttle.step(linear_velocity_error, time_elapsed)
+        brake = 0.0
+
+        if linear_velocity == 0. and current_velocity < 0.1:
             throttle = 0.0
-            if linear_velocity < 0.2:
-                brake = (self.vehicle_mass * self.wheel_radius) / 2.0
-            else:
-                brake = -(self.vehicle_mass * self.wheel_radius * linear_velocity_error)
+            brake=400
+
+        elif throttle < 0.1 and linear_velocity_error < 0:
+             throttle = 0.0
+             decel = max(linear_velocity_error,self.decel_limit)
+             brake=abs(decel)*self.vehicle_mass*self.wheel_radius
 
         # steering controller
         steer = self.yawcontroller.get_steering(linear_velocity, angular_velocity, current_velocity)
-        steer = self.lowpass_flt.filt(steer)
+        #steer = self.lowpass_flt.filt(steer)
 
         return throttle, brake, steer
 
     def set_controllers(self):
-        self.pid_throttle = PID(0.35, 0.0, 0.0, 0.0, 1.0)
-        self.pid_brake = PID(0.30, 0.0, 0.0, 0.0, 1.0)
-        self.lowpass_flt = LowPassFilter(0.2, 1.0)
+        self.pid_throttle = PID(0.3, 0.1, 0.0, 0.0, 0.6)
+        self.lowpass_flt = LowPassFilter(0.5, 0.2)
