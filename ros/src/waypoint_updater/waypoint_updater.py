@@ -46,7 +46,7 @@ class WaypointUpdater(object):
         self.desired_vel = 0.0  # the desired vehicle velocity at each timestep
         self.max_vel = None  # self.max_vel = 11.0
         self.ramp_dist = None  # self.ramp_dist = 35
-        self.acceleration = 0.33  # self.acceleration = self.max_vel / self.ramp_dist
+        self.acceleration = 0.27 # self.acceleration = self.max_vel / self.ramp_dist
 
         self.updater_loop()
 
